@@ -1,0 +1,568 @@
+#include "Solver.h"
+#include "Timer.h"
+//==============================================================================
+//  HashTable's Definition
+//==============================================================================
+
+//------------------------------------------------------------------------------
+inline Vector2ui computeCoordinate
+(
+    const Vector2f& position, 
+    const Domain& domain
+)
+{
+    int i = static_cast<int>
+    (
+        std::ceil((position.X - domain.Origin.X)/domain.Spacing)
+    );
+
+    int j = static_cast<int>
+    (
+        std::ceil((position.Y - domain.Origin.Y)/domain.Spacing)
+    );
+
+    i = std::max<int>(0, std::min<int>(i, domain.Dimensions.X));
+    j = std::max<int>(0, std::min<int>(j, domain.Dimensions.Y));
+
+    return Vector2ui(i, j);
+}
+//------------------------------------------------------------------------------
+inline unsigned int computeHash 
+(
+    const Vector2ui& coordinate,
+    unsigned int domainWidth
+)
+{
+    return coordinate.Y*domainWidth + coordinate.X; 
+}
+//------------------------------------------------------------------------------
+inline unsigned int computeHash 
+(
+    unsigned int i,
+    unsigned int j,
+    unsigned int domainWidth
+)
+{
+    return j*domainWidth + i; 
+}
+//------------------------------------------------------------------------------
+inline unsigned int computeHash
+(
+    const Vector2f& position, 
+    const Domain& domain
+)
+{
+    int i = static_cast<int>
+    (
+        std::ceil((position.X - domain.Origin.X)/domain.Spacing)
+    );
+
+    int j = static_cast<int>
+    (
+        std::ceil((position.Y - domain.Origin.Y)/domain.Spacing)
+    );
+    
+    i = std::max<int>(0, std::min<int>(i, domain.Dimensions.X));
+    j = std::max<int>(0, std::min<int>(j, domain.Dimensions.Y));
+
+    return computeHash(i, j, domain.Dimensions.X);
+}
+//------------------------------------------------------------------------------
+Solver::HashTable::HashTable 
+(
+    const float* positions, 
+    const Domain& domain
+)
+: mPositions(positions), mDomain(domain)
+{
+    mBuckets = new std::list<unsigned int>[domain.Dimensions.X*
+        domain.Dimensions.Y];
+}
+//------------------------------------------------------------------------------
+Solver::HashTable::~HashTable ()
+{
+    delete[] mBuckets;
+}
+//------------------------------------------------------------------------------
+void Solver::HashTable::Fill 
+(
+    const IDList& particleIDs
+)
+{
+    // clear all buckets
+    for (unsigned int i = 0; i < mDomain.Dimensions.X*mDomain.Dimensions.Y; i++)
+    {
+        mBuckets[i].clear();
+    }
+
+    // fill buckets
+	IDList::const_iterator i = particleIDs.begin();
+	IDList::const_iterator e = particleIDs.end();
+
+    for (; i != e; i++)
+    {
+        unsigned int hash = computeHash
+        (
+            Vector2f(&mPositions[2*(*i)]), 
+            mDomain
+        );
+        mBuckets[hash].push_back(*i);
+    }
+}
+//------------------------------------------------------------------------------
+void Solver::HashTable::Fill (unsigned int numParticles)
+{
+    // clear all buckets
+    for (unsigned int i = 0; i < mDomain.Dimensions.X*mDomain.Dimensions.Y; i++)
+    {
+        mBuckets[i].clear();
+    }
+
+    // fill buckets
+    for (unsigned int i = 0; i < numParticles; i++)
+    {
+        unsigned int hash = computeHash
+        (
+            Vector2f(&mPositions[2*i]), 
+            mDomain
+        );
+        mBuckets[hash].push_back(i);
+    }
+
+}
+//------------------------------------------------------------------------------
+void Solver::HashTable::Query (const Vector2f& position)
+{
+    // reset previous result
+    mResult.clear();
+    
+    Vector2f begf(position);
+    begf.X -= mDomain.Spacing;
+    begf.Y -= mDomain.Spacing;
+    Vector2f endf(position);
+    endf.X += mDomain.Spacing;
+    endf.Y += mDomain.Spacing;
+
+    Vector2ui beg = computeCoordinate(begf, mDomain);
+    Vector2ui end = computeCoordinate(endf, mDomain);
+
+    for (unsigned int i = beg.X; i <= end.X; i++)
+    {
+        for (unsigned int j = beg.Y; j <= end.Y; j++)
+        {
+            unsigned int hash = computeHash(i, j, mDomain.Dimensions.X);
+            mResult.insert
+            (
+                mResult.end(), 
+                mBuckets[hash].begin(), 
+                mBuckets[hash].end()
+            );
+        }
+    }   
+}
+//------------------------------------------------------------------------------
+const IDList& Solver::HashTable::GetResult () const
+{
+    return mResult;
+}
+//------------------------------------------------------------------------------
+
+//==============================================================================
+//  Solvers's Definition
+//==============================================================================
+
+//------------------------------------------------------------------------------
+#define PI 3.14159265358979323846f
+//------------------------------------------------------------------------------
+inline float computeDotProduct (const float *x, const float *y)
+{
+    return x[0]*y[0] + x[1]*y[1];
+}
+//------------------------------------------------------------------------------
+inline float computeDistance (const float *x, const float *y)
+{
+    return std::sqrt((x[0] - y[0])*(x[0] - y[0]) + (x[1] - y[1])*(x[1] - y[1]));
+}
+//------------------------------------------------------------------------------
+inline float computeNorm (const float *x)
+{
+	return std::sqrt(x[0]*x[0] + x[1]*x[1]);
+}
+//------------------------------------------------------------------------------
+inline float evaluateKernel (float dist, float h)
+{
+    float c = 20.0f/(14.0f*PI*h*h);
+    float q = 2.0f*dist/h;
+
+    if (q < 1.0f)
+    {
+        float a = 2.0f - q;
+        float b = 1.0f - q;
+
+        return c*(a*a*a - 4.0f*b*b*b);
+    }
+    if (q < 2.0f)
+    {
+        float a = 2.0f - q;
+
+        return c*a*a*a;
+    }
+
+    return 0.0f;
+}
+//------------------------------------------------------------------------------
+inline Vector2f evaluateKernelGradient (const Vector2f& xij, float dist, float h)
+{
+    Vector2f grad(0.0f, 0.0f);
+    float c = -120.0f/(14.0f*PI*h*h*h*dist);
+    float q = 2.0f*dist/h;
+
+    if (dist == 0.0f)
+    {
+        return grad;
+    }
+
+    if (q < 1.0f)
+    {
+        float a = 2.0f - q;
+        float b = 1.0f - q;
+        float d = c*(a*a - 4.0f*b*b);
+        grad.X = d*xij.X;
+        grad.Y = d*xij.Y;
+        return grad;
+    }
+
+    if (q < 2.0f)
+    {
+        float a = 2.0f - q;
+        float d = c*a*a;
+        grad.X = d*xij.X;
+        grad.Y = d*xij.Y;
+        return grad;
+    }
+    return grad;
+}
+//------------------------------------------------------------------------------
+inline float evaluateBoundaryWeight (float dist, float h, float speedSound)
+{
+	float q = 2.0f*dist/h;
+	float c = 0.02f*speedSound*speedSound/(dist*dist);
+
+	if (q < 2.0f/3.0f)
+	{
+		return c*2.0f/3.0f;
+	}
+	else if (q < 1.0f)
+	{
+		float a = 2.0f*q - 3.0f/2.0f*q*q;
+		return c*a;
+	}
+	else if (q < 2.0f)
+	{
+		float a = (2.0f - q);
+		return c*0.5f*a*a;
+	}
+	else
+	{
+		return 0.0f;
+	}
+}
+//------------------------------------------------------------------------------
+Solver::Solver 
+(
+    ParticleData* fluidParticles[2], 
+    ParticleData* boundaryParticles, 
+    const SolverConfiguration configuration
+)
+:
+    mConfiguration(configuration)
+{
+	// assign particle data to member
+   	mFluidParticles[LOW] = fluidParticles[LOW];
+   	mFluidParticles[HIGH] = fluidParticles[HIGH];
+	mBoundaryParticles = boundaryParticles;
+
+	// allocate Hash tables
+	mFluidHashTable[LOW] = new HashTable
+	(
+		fluidParticles[LOW]->Positions, 
+		configuration.Domain[LOW]
+	);
+	mFluidHashTable[HIGH] = new HashTable
+	(
+		fluidParticles[HIGH]->Positions, 
+		configuration.Domain[HIGH]
+	);
+	mBoundaryHashTable = new HashTable
+	(
+		boundaryParticles->Positions, 
+		configuration.Domain[HIGH]
+	);
+	
+	// allocate and set additional particle data for the low and high res
+	// of the fluid
+	for (unsigned int i = 0; i < 2; i++)
+	{ 
+		// allocate additional particle data
+    	mVelocities[i] = new float[2*fluidParticles[i]->NumParticles];
+    	mAccelerations[i] = new float[2*fluidParticles[i]->NumParticles];
+    	mDensities[i] = new float[fluidParticles[i]->NumParticles];
+    	mPressures[i] = new float[fluidParticles[i]->NumParticles];
+
+		// memset everthing to 0
+	    memset
+		(
+			mVelocities[i], 
+			0, 
+			sizeof(float)*2*fluidParticles[i]->NumParticles
+		);
+    	memset
+		(
+			mAccelerations[i] , 
+			0, 
+			sizeof(float)*2*fluidParticles[i]->NumParticles
+		);
+    	memset
+		(
+			mDensities[i], 
+			0, 
+			sizeof(float)*fluidParticles[i]->NumParticles
+		);
+    	memset
+		(
+			mPressures[i], 
+			0, 
+			sizeof(float)*fluidParticles[i]->NumParticles
+		);
+	}
+
+	// insert boundary particles into the hash map
+	mBoundaryHashTable->Fill(mBoundaryParticles->NumParticles);
+
+}
+//------------------------------------------------------------------------------
+Solver::~Solver ()
+{
+	// release everything
+	for (unsigned int i = 0; i < 2; i++)
+	{
+    	delete[] mVelocities[i];
+    	delete[] mAccelerations[i];
+    	delete[] mDensities[i];
+    	delete[] mPressures[i];
+	}
+
+	// todo delete hash tables
+}
+//------------------------------------------------------------------------------
+void Solver::Advance (float timeStep)
+{
+	mFluidHashTable[LOW]->Fill(mFluidParticles[LOW]->ActiveIDs);                
+	computeDensity(LOW); 
+    computeAcceleration(LOW);
+    integrate(LOW, timeStep);
+	mFluidHashTable[HIGH]->Fill(mFluidParticles[HIGH]->ActiveIDs);
+	computeDensity(HIGH); 
+    computeAcceleration(HIGH);
+    integrate(HIGH, timeStep);
+}
+//------------------------------------------------------------------------------
+void Solver::computeDensity (unsigned char res)
+{
+	IDList::const_iterator i = mFluidParticles[res]->ActiveIDs.begin();
+	IDList::const_iterator e = mFluidParticles[res]->ActiveIDs.end();
+
+    for (; i != e; i++)
+    {
+        float *pos = &mFluidParticles[res]->Positions[2*(*i)];
+        
+        // get neighbor ids
+        mFluidHashTable[res]->Query(Vector2f(pos));
+        const IDList& neighbors = mFluidHashTable[res]->GetResult();
+        
+        // 
+        float density = 0.0f;
+
+		IDList::const_iterator j = neighbors.begin();
+		IDList::const_iterator je = neighbors.end();
+		
+		// iterate through neighbors and add up their contribution to 
+		// the density of particle i
+        for (; j != je; j++)
+        {
+            float *posj = &mFluidParticles[res]->Positions[2*(*j)];
+            float posij[2];
+            posij[0] = pos[0] - posj[0];
+            posij[1] = pos[1] - posj[1];
+            float dist = std::sqrt(posij[0]*posij[0] + posij[1]*posij[1]);
+
+            if (dist < mConfiguration.EffectiveRadius[res])
+            {
+                density += evaluateKernel
+				(
+					dist, 
+					mConfiguration.EffectiveRadius[res]
+				);
+            }
+
+        }		
+
+        density *= mConfiguration.FluidParticleMass[res];
+        mDensities[res][*i] = density;
+
+        
+        float a = density/mConfiguration.RestDensity;
+        float a3 = a*a*a;
+        mPressures[res][*i] = mConfiguration.TaitCoefficient*(a3*a3*a - 1.0f);
+    } 
+
+}
+//------------------------------------------------------------------------------
+void Solver::computeAcceleration (unsigned char res)
+{
+	IDList::const_iterator i = mFluidParticles[res]->ActiveIDs.begin();
+	IDList::const_iterator e = mFluidParticles[res]->ActiveIDs.end();
+
+    for (; i != e; i++)
+    {
+        float *pos = &mFluidParticles[res]->Positions[2*(*i)];
+        float *vel = &mVelocities[res][2*(*i)]; 
+        float *acc = &mAccelerations[res][2*(*i)];
+        float den = mDensities[res][*i];
+        float pre = mPressures[res][*i];
+
+        // reset acc
+        acc[0] = 0.0f;
+        acc[1] = 0.0f;
+
+        // reserve mem for tension force
+        float accT[2];
+        accT[0] = 0.0f;
+        accT[1] = 0.0f;
+
+		// reserve mem for boundary force
+		float accB[2];
+		accB[0] = 0.0f;
+		accB[1] = 0.0f;
+
+        // get neighbor ids
+        mFluidHashTable[res]->Query(Vector2f(pos));
+        const IDList& neighbors = mFluidHashTable[res]->GetResult();
+
+		IDList::const_iterator j = neighbors.begin();
+		IDList::const_iterator je = neighbors.end();
+        
+        for (; j != je; j++)
+        {
+            float *posj = &mFluidParticles[res]->Positions[2*(*j)];
+            float *velj = &mVelocities[res][2*(*j)];
+            float denj = mDensities[res][*j];
+            float prej = mPressures[res][*j];
+            float dist = computeDistance(pos, posj);
+            float xij[2];
+            xij[0] = pos[0] - posj[0];
+            xij[1] = pos[1] - posj[1];
+            float vij[2];
+            vij[0] = vel[0] - velj[0];
+            vij[1] = vel[1] - velj[1];
+        
+            if (dist < mConfiguration.EffectiveRadius[res])
+            {
+                // compute SPH pressure coefficient
+                float coeff = (pre/(den*den) + prej/(denj*denj));
+                float vx = computeDotProduct(xij, vij);
+                float h = mConfiguration.EffectiveRadius[res];
+                
+                // check if artificial viscosity shoud be applied
+                if (vx < 0.0f)
+                {
+                    // add artificial velocity to the SPH Force coefficient
+                    float x2 = dist*dist;
+                    float nu = -2.0f*mConfiguration.Alpha*h*
+                        mConfiguration.SpeedSound/(den + denj);
+                    coeff += nu*vx/(x2 + 0.01f*h*h);
+                }
+
+                //evaluate kernel gradient and add contribution of particle j
+                //to acc
+                Vector2f grad = evaluateKernelGradient(Vector2f(xij), dist, h);
+                acc[0] += coeff*grad.X;
+                acc[1] += coeff*grad.Y;
+
+                //std::cout << coeff << std::endl;
+
+                // compute tension force and add to the acc
+                float kernelT = evaluateKernel(dist, h);
+                accT[0] -= mConfiguration.TensionCoefficient*xij[0]*kernelT;
+                accT[1] -= mConfiguration.TensionCoefficient*xij[1]*kernelT;
+            }
+
+			
+			//
+			// 	compute penalty force of the boundary
+			//
+			mBoundaryHashTable->Query(Vector2f(pos));
+			const IDList& bneighbors = mBoundaryHashTable->GetResult();
+
+			IDList::const_iterator k = bneighbors.begin();
+			IDList::const_iterator ke = bneighbors.end();
+
+	   	    for (; k != ke; k++)
+			{
+	            float *posk = &mBoundaryParticles->Positions[2*(*k)];
+        	    float xik[2];
+    	        xik[0] = pos[0] - posk[0];
+	            xik[1] = pos[1] - posk[1];
+				float dist = computeNorm(xik);
+
+				if (dist < mConfiguration.EffectiveRadius[res]) 
+				{
+				    float w = evaluateBoundaryWeight
+					(
+						dist, 
+						mConfiguration.EffectiveRadius[res],
+						mConfiguration.SpeedSound
+					);
+					float c = mConfiguration.BoundaryParticleMass/
+						(mConfiguration.FluidParticleMass[res] + 
+						mConfiguration.BoundaryParticleMass);
+
+					float d = c*w;
+					accB[0] += d*xik[0];		
+					accB[1] += d*xik[1];		
+				}
+				
+			}
+
+        }
+        acc[0] *= -mConfiguration.FluidParticleMass[0];
+        acc[1] *= -mConfiguration.FluidParticleMass[0];
+        acc[0] += accT[0];
+        acc[1] += accT[1];
+        acc[0] += accB[0];
+        acc[1] += accB[1];
+      //  std::cout << i << " " << acc[0] << std::endl;
+
+        acc[1] -= 9.81f;
+    }
+    //std::system("pause");
+}
+//------------------------------------------------------------------------------
+void Solver::integrate (unsigned char res, float timeStep)
+{
+	IDList::iterator i = mFluidParticles[res]->ActiveIDs.begin();
+	IDList::iterator e = mFluidParticles[res]->ActiveIDs.end();
+
+    for (;i != e; i++)
+    {
+        float* pos = &mFluidParticles[res]->Positions[2*(*i)];
+        float* vel = &mVelocities[res][2*(*i)];
+        float* acc = &mAccelerations[res][2*(*i)];
+
+        vel[0] += timeStep*acc[0];
+        vel[1] += timeStep*acc[1];
+        pos[0] += timeStep*vel[0];
+        pos[1] += timeStep*vel[1];
+	}
+}
+//------------------------------------------------------------------------------
