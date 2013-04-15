@@ -28,7 +28,7 @@ static void init ()
 	
 	gsParticleData[HIGH] = ParticleData::CreateCube
 	(
-		Grid(Vector2f(0.64f, 0.21f), Vector2ui(26, 51), 0.005f)  
+		Grid(Vector2f(0.44f, 0.21f), Vector2ui(26, 51), 0.005f)  
 	);
 
 	// init boundary data
@@ -36,10 +36,10 @@ static void init ()
 	gsBoundaryData = ParticleData::CreateCanvas(bGrid, 3);	
 
     // init the renderer
-    gsRenderer[LOW] = new Renderer(*(gsParticleData[LOW]), 0.0f, 0.0f, 1.0f, 1.0f, 
-        0.0f, 0.0f, 1.0f, 1.0f);
-    gsRenderer[HIGH] = new Renderer(*(gsParticleData[HIGH]), 0.0f, 0.0f, 1.0f, 1.0f, 
-        0.0f, 0.0f, 1.0f, 1.0f);
+    gsRenderer[LOW] = new Renderer(*(gsParticleData[LOW]), 0.0f, 0.0f, 1.0f, 
+		1.0f, 0.0f, 0.0f, 1.0f, 1.0f);
+    gsRenderer[HIGH] = new Renderer(*(gsParticleData[HIGH]), 0.0f, 0.0f, 1.0f, 
+		1.0f, 0.0f, 0.0f, 1.0f, 1.0f);
 
 	// init boundary renderer
 	gsBoundaryRenderer = new Renderer(*gsBoundaryData, 0.0f, 0.0f, 1.0f, 1.0f, 
@@ -68,10 +68,10 @@ static void init ()
         configuration.EffectiveRadius[HIGH] 
     );
     configuration.RestDensity = 1000.0f;
-    configuration.FluidParticleMass[LOW] = configuration.RestDensity*0.25f*0.125f/
-        gsParticleData[LOW]->NumParticles;
-    configuration.FluidParticleMass[HIGH] = configuration.RestDensity*0.25f*0.125f/
-        gsParticleData[HIGH]->NumParticles;
+    configuration.FluidParticleMass[LOW] = configuration.RestDensity*0.25f*
+		0.125f/gsParticleData[LOW]->NumParticles;
+    configuration.FluidParticleMass[HIGH] = configuration.RestDensity*0.25f*
+		0.125f/gsParticleData[HIGH]->NumParticles;
     configuration.BoundaryParticleMass = configuration.FluidParticleMass[LOW];
     configuration.TensionCoefficient = 0.08f; 
     configuration.SpeedSound = 88.1472f;
@@ -102,7 +102,7 @@ static void draw ()
 	gsRenderer[LOW]->Render();
 	gsRenderer[HIGH]->Render();
 	gsBoundaryRenderer->Render();
-	gsSolver->Advance(0.0005);
+	gsSolver->Advance(0.0005f);
 }
 //-----------------------------------------------------------------------------
 int main(int argc, const char *argv[])

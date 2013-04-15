@@ -191,6 +191,7 @@ class Solver
         void Fill (const IDList& particleIDs);
         void Fill (unsigned int numParticles);
         void Query (const Vector2f& position);
+		void Query (const Vector2f& position, float range);
         const IDList& GetResult () const;           
     
     private:
