@@ -17,6 +17,7 @@ static ParticleData* gsBoundaryData;
 static Renderer* gsRenderer[2];
 static Renderer* gsBoundaryRenderer;
 static Solver* gsSolver;
+static DisplayRectangle gsDispRect(0.0f, 0.0f, 1.0f, 1.0f);
 //------------------------------------------------------------------------------
 static void init ()
 {
@@ -48,13 +49,13 @@ static void init ()
     gsRenderer[LOW] = new Renderer
 	(
 		*(gsParticleData[LOW]),
-		0.0f, 0.0f, 1.0f, 1.0f, 
+		gsDispRect,
 		0.0f, 0.0f, 1.0f, 1.0f
 	);
     gsRenderer[HIGH] = new Renderer
 	(
 		*(gsParticleData[HIGH]), 
-		0.0f, 0.0f, 1.0f, 1.0f, 
+		gsDispRect,
 		1.0f, 0.0f, 0.0f, 1.0f
 	);
 
@@ -62,7 +63,7 @@ static void init ()
 	gsBoundaryRenderer = new Renderer
 	(
 		*gsBoundaryData, 
-		0.0f, 0.0f, 1.0f, 1.0f, 
+		gsDispRect, 
 		0.0f, 0.0f, 0.0f, 1.0f  
 	);
 
@@ -174,7 +175,52 @@ int main(int argc, const char *argv[])
 		{
 			switch (event.type)
 			{
-		//		case SDL_KEYDOWN:
+				case SDL_KEYDOWN:
+					switch (event.key.keysym.sym)
+					{
+						case SDLK_LEFT:
+							gsDispRect.Translate(-0.01f, 0.0f);
+							gsRenderer[LOW]->SetDisplayRectangle(gsDispRect);
+							gsRenderer[HIGH]->SetDisplayRectangle(gsDispRect);
+							gsBoundaryRenderer->SetDisplayRectangle(gsDispRect);
+							break;
+						case SDLK_RIGHT:
+							gsDispRect.Translate(0.01f, 0.0f);
+							gsRenderer[LOW]->SetDisplayRectangle(gsDispRect);
+							gsRenderer[HIGH]->SetDisplayRectangle(gsDispRect);
+							gsBoundaryRenderer->SetDisplayRectangle(gsDispRect);
+							break;
+						case SDLK_UP:
+							gsDispRect.Translate(0.0f, 0.01f);
+							gsRenderer[LOW]->SetDisplayRectangle(gsDispRect);
+							gsRenderer[HIGH]->SetDisplayRectangle(gsDispRect);
+							gsBoundaryRenderer->SetDisplayRectangle(gsDispRect);
+							break;
+						case SDLK_DOWN:
+							gsDispRect.Translate(0.0f, -0.01f);
+							gsRenderer[LOW]->SetDisplayRectangle(gsDispRect);
+							gsRenderer[HIGH]->SetDisplayRectangle(gsDispRect);
+							gsBoundaryRenderer->SetDisplayRectangle(gsDispRect);
+							break;
+						case SDLK_ESCAPE:
+							running = 0;
+							break;
+						case 'q':
+							gsDispRect.Scale(-0.01f);
+							gsRenderer[LOW]->SetDisplayRectangle(gsDispRect);
+							gsRenderer[HIGH]->SetDisplayRectangle(gsDispRect);
+							gsBoundaryRenderer->SetDisplayRectangle(gsDispRect);
+							break;	
+						case 'a':
+							gsDispRect.Scale(0.01f);
+							gsRenderer[LOW]->SetDisplayRectangle(gsDispRect);
+							gsRenderer[HIGH]->SetDisplayRectangle(gsDispRect);
+							gsBoundaryRenderer->SetDisplayRectangle(gsDispRect);
+							break;	
+						case 'f':
+							break;
+					}
+					break;
 		//		case SDL_KEYUP:
 				case SDL_QUIT:
 					running = 0;

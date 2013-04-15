@@ -259,6 +259,7 @@ inline Vector2f evaluateKernelGradient
         float d = c*(a*a - 4.0f*b*b);
         grad.X = d*xij.X;
         grad.Y = d*xij.Y;
+
         return grad;
     }
 
@@ -268,6 +269,7 @@ inline Vector2f evaluateKernelGradient
         float d = c*a*a;
         grad.X = d*xij.X;
         grad.Y = d*xij.Y;
+
         return grad;
     }
     return grad;
@@ -680,6 +682,7 @@ void Solver::computeAcceleration (unsigned char res)
 		//======================================================================
 		// 	compute penalty force of the boundary
 		//======================================================================
+
 		mBoundaryHashTable->Query(Vector2f(pos));
 		const IDList& bneighbors = mBoundaryHashTable->GetResult();
 
@@ -814,8 +817,6 @@ void Solver::inject ()
 		}
 
 	}	
-
-
 
 }
 //------------------------------------------------------------------------------

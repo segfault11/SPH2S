@@ -2,8 +2,8 @@
 #include <iostream>
 
 //------------------------------------------------------------------------------
-Renderer::Renderer (const ParticleData& particles, float xs, float ys, float xe, 
-    float ye, float r, float g, float b, float a)
+Renderer::Renderer (const ParticleData& particles, const DisplayRectangle& rect, 
+    float r, float g, float b, float a)
 : mParticles(particles)
 {
 	//
@@ -21,21 +21,11 @@ Renderer::Renderer (const ParticleData& particles, float xs, float ys, float xe,
     GL::DumpLog(mProgram);
 
     // init program
-    float width = xe - xs;
-    float height = ye - ys;
-
     glUseProgram(mProgram);
     GLint loc;
-    loc = glGetUniformLocation(mProgram, "xs");
-    glUniform1f(loc, xs);
-    loc = glGetUniformLocation(mProgram, "ys");
-    glUniform1f(loc, ys);
-    loc = glGetUniformLocation(mProgram, "width");
-    glUniform1f(loc, width);
-    loc = glGetUniformLocation(mProgram, "height");
-    glUniform1f(loc, height);
     loc = glGetUniformLocation(mProgram, "color");
     glUniform4f(loc, r, g, b, a);
+	SetDisplayRectangle(rect);
 
     // create vbo & vao
     GL::CreateBufferObject
@@ -63,7 +53,7 @@ Renderer::Renderer (const ParticleData& particles, float xs, float ys, float xe,
 	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, mActiveIDsVBO);
     glEnableVertexAttribArray(0);
 }
-//------------------------------------------------------------------------------
+//-------------------------------------------------------------t-----------------
 Renderer::~Renderer ()
 {
 	delete[] mActiveIDs;
@@ -109,5 +99,22 @@ void Renderer::Render () const
    	glDrawElements(GL_POINTS, mParticles.ActiveIDs.size(),
 		GL_UNSIGNED_INT, 0);
 	
+}
+//------------------------------------------------------------------------------
+void Renderer::SetDisplayRectangle (const DisplayRectangle& rect)
+{
+    float width = rect.XMax - rect.XMin;
+    float height = rect.YMax - rect.YMin;
+
+    glUseProgram(mProgram);
+    GLint loc;
+    loc = glGetUniformLocation(mProgram, "xs");
+    glUniform1f(loc, rect.XMin);
+    loc = glGetUniformLocation(mProgram, "ys");
+    glUniform1f(loc, rect.YMin);
+    loc = glGetUniformLocation(mProgram, "width");
+    glUniform1f(loc, width);
+    loc = glGetUniformLocation(mProgram, "height");
+    glUniform1f(loc, height);
 }
 //------------------------------------------------------------------------------
