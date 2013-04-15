@@ -2,7 +2,8 @@
 #include <iostream>
 
 //------------------------------------------------------------------------------
-Renderer::Renderer (const ParticleData& particles, const DisplayRectangle& rect)
+Renderer::Renderer (const ParticleData& particles, const DisplayRectangle& rect,
+	float pointSize)
 : mParticles(particles)
 {
 	//
@@ -12,6 +13,8 @@ Renderer::Renderer (const ParticleData& particles, const DisplayRectangle& rect)
     mProgram = glCreateProgram();
     GL::AttachShader(mProgram, "RendererVertexShader.glsl", 
         GL_VERTEX_SHADER);
+    GL::AttachShader(mProgram, "RendererGeometryShader.glsl", 
+        GL_GEOMETRY_SHADER);
     GL::AttachShader(mProgram, "RendererFragmentShader.glsl", 
         GL_FRAGMENT_SHADER);
     GL::BindAttribLocation(mProgram, "position", 0);
@@ -22,6 +25,10 @@ Renderer::Renderer (const ParticleData& particles, const DisplayRectangle& rect)
 
     // init program
 	SetDisplayRectangle(rect);
+	glUseProgram(mProgram);
+    GLint loc;
+    loc = glGetUniformLocation(mProgram, "pointSize");
+    glUniform1f(loc, pointSize);
 
     // create vbo & vao
     GL::CreateBufferObject
@@ -50,6 +57,8 @@ Renderer::Renderer (const ParticleData& particles, const DisplayRectangle& rect)
 		NULL,
 		GL_DYNAMIC_DRAW
 	);	
+
+	
 
     glGenVertexArrays(1, &mPositionsVAO);
     glBindVertexArray(mPositionsVAO);

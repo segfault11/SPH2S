@@ -18,6 +18,7 @@ static Renderer* gsRenderer[2];
 static Renderer* gsBoundaryRenderer;
 static Solver* gsSolver;
 static DisplayRectangle gsDispRect(0.0f, 0.0f, 1.0f, 1.0f);
+static bool gsPause = false;
 //------------------------------------------------------------------------------
 static void init ()
 {
@@ -32,12 +33,6 @@ static void init ()
 		Grid(Vector2f(0.64f, 0.21f), Vector2ui(26, 51), 0.0025f)  
 	);
 
-//	gsParticleData[HIGH] = new ParticleData
-//	(
-//		gsParticleData[LOW]->NumParticles*4,
-//		0
-//	);
-
 	// init boundary data
 	gsBoundaryData = ParticleData::CreateCanvas
 	(
@@ -49,19 +44,22 @@ static void init ()
     gsRenderer[LOW] = new Renderer
 	(
 		*(gsParticleData[LOW]),
-		gsDispRect
+		gsDispRect,
+		0.005f
 	);
     gsRenderer[HIGH] = new Renderer
 	(
 		*(gsParticleData[HIGH]), 
-		gsDispRect
+		gsDispRect,
+		0.0025f
 	);
 
 	// init boundary renderer
 	gsBoundaryRenderer = new Renderer
 	(
 		*gsBoundaryData, 
-		gsDispRect 
+		gsDispRect, 
+		0.010f
 	);
 
     // init the solver configuration
@@ -119,7 +117,11 @@ static void draw ()
 	gsRenderer[LOW]->Render();
 	gsRenderer[HIGH]->Render();
 	gsBoundaryRenderer->Render();
-	gsSolver->Advance(0.0005f);
+
+	if (!gsPause)
+	{
+		gsSolver->Advance(0.0005f);
+	}
 }
 //------------------------------------------------------------------------------
 int main(int argc, const char *argv[])
@@ -214,7 +216,8 @@ int main(int argc, const char *argv[])
 							gsRenderer[HIGH]->SetDisplayRectangle(gsDispRect);
 							gsBoundaryRenderer->SetDisplayRectangle(gsDispRect);
 							break;	
-						case 'f':
+						case 'p':
+							gsPause = gsPause == true ? false : true;
 							break;
 					}
 					break;

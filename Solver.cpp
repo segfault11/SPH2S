@@ -507,7 +507,7 @@ void Solver::computeDensity (unsigned char res)
 
 		// DEBUG!
 		mFluidParticles[res]->Colors[*i] = std::abs(density + densityc - 
-			mConfiguration.RestDensity)/200.0f;
+			mConfiguration.RestDensity)/400.0f;
  
         float a = density/mConfiguration.RestDensity;
         float a3 = a*a*a;

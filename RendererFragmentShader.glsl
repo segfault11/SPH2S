@@ -7,7 +7,12 @@ uniform float height;
 
 out vec4 fragOutput;
 
-in float vColors;
+in GeometryData
+{
+    vec2 relCoord;
+    float quantity;
+}
+gGeometryData;
 
 // Returns the appropriate value from the Jet color function.
 vec3 getJetColor(float value) 
@@ -22,5 +27,13 @@ vec3 getJetColor(float value)
 
 void main ()
 {
-    fragOutput = vec4(getJetColor(vColors), 1.0f); //color;
+    float x = gGeometryData.relCoord.x;
+    float y = gGeometryData.relCoord.y;
+
+    if (x*x + y*y > 1.0f)
+    {
+        discard;
+    }
+
+    fragOutput = vec4(getJetColor(gGeometryData.quantity), 1.0f); //color;
 }

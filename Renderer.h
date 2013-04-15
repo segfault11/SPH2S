@@ -49,7 +49,8 @@ struct DisplayRectangle
 class Renderer
 {
 public:
-    Renderer (const ParticleData& particles, const DisplayRectangle& rect);
+    Renderer (const ParticleData& particles, const DisplayRectangle& rect,
+		float pointSize);
     ~Renderer ();
     void Render () const;
 	void SetDisplayRectangle (const DisplayRectangle& rect);
