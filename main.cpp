@@ -49,22 +49,19 @@ static void init ()
     gsRenderer[LOW] = new Renderer
 	(
 		*(gsParticleData[LOW]),
-		gsDispRect,
-		0.0f, 0.0f, 1.0f, 1.0f
+		gsDispRect
 	);
     gsRenderer[HIGH] = new Renderer
 	(
 		*(gsParticleData[HIGH]), 
-		gsDispRect,
-		1.0f, 0.0f, 0.0f, 1.0f
+		gsDispRect
 	);
 
 	// init boundary renderer
 	gsBoundaryRenderer = new Renderer
 	(
 		*gsBoundaryData, 
-		gsDispRect, 
-		0.0f, 0.0f, 0.0f, 1.0f  
+		gsDispRect 
 	);
 
     // init the solver configuration

@@ -84,7 +84,9 @@ struct ParticleData
     : NumParticles(numParticles)
     {
         Positions = new float[2*numParticles];
+        Colors = new float[numParticles];
         memset(Positions, 0, sizeof(float)*2*numParticles);
+		std::fill(Colors, Colors + numParticles, 0.0f);
 
 		for (unsigned int i = 0; i < numParticles; i++)
 		{
@@ -96,7 +98,9 @@ struct ParticleData
     : NumParticles(numParticles)
     {
         Positions = new float[2*numParticles];
+        Colors = new float[numParticles];
         memset(Positions, 0, sizeof(float)*2*numParticles);
+		std::fill(Colors, Colors + numParticles, 0.0f);
 
 		for (unsigned int i = 0; i < numActive; i++)
 		{
@@ -168,6 +172,7 @@ struct ParticleData
 	}
 
     float* Positions;
+	float* Colors;
     unsigned int NumParticles;
 	IDList ActiveIDs;
 

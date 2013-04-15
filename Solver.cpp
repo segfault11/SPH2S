@@ -503,7 +503,12 @@ void Solver::computeDensity (unsigned char res)
 		//======================================================================
 
         mDensities[res][*i] = density + densityc;
-        
+       
+
+		// DEBUG!
+		mFluidParticles[res]->Colors[*i] = std::abs(density + densityc - 
+			mConfiguration.RestDensity)/200.0f;
+ 
         float a = density/mConfiguration.RestDensity;
         float a3 = a*a*a;
         mPressures[res][*i] = mConfiguration.TaitCoefficient*(a3*a3*a - 1.0f);

@@ -49,8 +49,7 @@ struct DisplayRectangle
 class Renderer
 {
 public:
-    Renderer (const ParticleData& particles, const DisplayRectangle& rect,
-		float r, float g, float b, float a);
+    Renderer (const ParticleData& particles, const DisplayRectangle& rect);
     ~Renderer ();
     void Render () const;
 	void SetDisplayRectangle (const DisplayRectangle& rect);
@@ -60,6 +59,7 @@ private:
 	GLuint* mActiveIDs;
     GLuint mProgram;
     GLuint mPositionsVBO;
+	GLuint mColorsVBO;
 	GLuint mActiveIDsVBO;
     GLuint mPositionsVAO;
 };
