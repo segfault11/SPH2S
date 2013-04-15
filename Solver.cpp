@@ -603,6 +603,10 @@ void Solver::computeAcceleration (unsigned char res)
 		accC[0] = 0.0f;
 		accC[1] = 0.0f;
 
+		float accCT[2];
+		accCT[0] = 0.0f;
+		accCT[1] = 0.0f;
+
 		unsigned char resc = (res + 1) % 2;
         mFluidHashTable[resc]->Query
 		(
@@ -645,12 +649,29 @@ void Solver::computeAcceleration (unsigned char res)
                    	coeff += nu*vx/(x2 + 0.01f*h*h);
               	}
 				
-				Vector2f grad = evaluateKernelGradient(Vector2f(xij), dist, h);
-				Vector2f gradc = evaluateKernelGradient(Vector2f(xij), dist, hc);
+				Vector2f grad = evaluateKernelGradient
+				(
+					Vector2f(xij), 
+					dist,
+					h
+				);
+				Vector2f gradc = evaluateKernelGradient
+				(
+					Vector2f(xij), 
+					dist, 
+					hc
+				);
 
                 accC[0] += coeff*(grad.X + gradc.X)*0.5f;
                 accC[1] += coeff*(grad.Y + gradc.Y)*0.5f;
 
+                float wt = evaluateKernel(dist, h);
+                float wct = evaluateKernel(dist, hc);
+
+                accCT[0] -= mConfiguration.TensionCoefficient*xij[0]*
+					(wt + wct)/2.0f;
+                accCT[1] -= mConfiguration.TensionCoefficient*xij[1]*
+					(wt + wct)/2.0f;
        		}
 
 		}
@@ -672,16 +693,16 @@ void Solver::computeAcceleration (unsigned char res)
             xik[1] = pos[1] - posk[1];
 			float dist = computeNorm(xik);
 
-			if (dist < mConfiguration.EffectiveRadius[res]) 
+			if (dist < mConfiguration.EffectiveRadius[LOW]) 
 			{
 			    float w = evaluateBoundaryWeight
 				(
 					dist, 
-					mConfiguration.EffectiveRadius[res],
+					mConfiguration.EffectiveRadius[LOW],
 					mConfiguration.SpeedSound
 				);
 				float c = mConfiguration.BoundaryParticleMass/
-					(mConfiguration.FluidParticleMass[res] + 
+					(mConfiguration.FluidParticleMass[LOW] + 
 					mConfiguration.BoundaryParticleMass);
 
 				float d = c*w;
@@ -699,10 +720,16 @@ void Solver::computeAcceleration (unsigned char res)
         acc[1] *= -mConfiguration.FluidParticleMass[res];
 		accC[0] *= -mConfiguration.FluidParticleMass[resc];
 		accC[1] *= -mConfiguration.FluidParticleMass[resc];
+		accCT[0] *= (mConfiguration.FluidParticleMass[resc]/
+			mConfiguration.FluidParticleMass[res]);
+		accCT[1] *= (mConfiguration.FluidParticleMass[resc]/
+			mConfiguration.FluidParticleMass[res]);
         acc[0] += accT[0];
         acc[1] += accT[1];
         acc[0] += accC[0];
         acc[1] += accC[1];
+        acc[0] += accCT[0];
+        acc[1] += accCT[1];
         acc[0] += accB[0];
         acc[1] += accB[1];
       //  std::cout << i << " " << acc[0] << std::endl;
