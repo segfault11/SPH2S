@@ -395,6 +395,7 @@ void Solver::Advance (float timeStep)
     computeAcceleration(HIGH);
 	integrate(LOW, timeStep);
     integrate(HIGH, timeStep);
+	//inject();
 }
 //------------------------------------------------------------------------------
 void Solver::computeDensity (unsigned char res)
@@ -732,11 +733,8 @@ void Solver::computeAcceleration (unsigned char res)
         acc[1] += accCT[1];
         acc[0] += accB[0];
         acc[1] += accB[1];
-      //  std::cout << i << " " << acc[0] << std::endl;
-
         acc[1] -= 9.81f;
     }
-    //std::system("pause");
 }
 //------------------------------------------------------------------------------
 void Solver::integrate (unsigned char res, float timeStep)
@@ -755,5 +753,69 @@ void Solver::integrate (unsigned char res, float timeStep)
         pos[0] += timeStep*vel[0];
         pos[1] += timeStep*vel[1];
 	}
+}
+//------------------------------------------------------------------------------
+void Solver::inject () 
+{
+	static float dir[] = 
+	{
+		 1.0f, 1.0f,
+		-1.0f, 1.0f,
+		 1.0f, -1.0f,
+		-1.0f, -1.0f
+	};
+	float sq = sqrt(2.0f);
+
+	//==========================================================================
+	// 	check for each particle i, if it should be split
+	//==========================================================================
+
+	IDList::iterator i = mFluidParticles[LOW]->ActiveIDs.begin();
+	IDList::iterator e = mFluidParticles[LOW]->ActiveIDs.end();
+
+    for (;i != e; i++)
+    {
+        float *pos = &mFluidParticles[LOW]->Positions[2*(*i)];
+        float *vel = &mVelocities[LOW][2*(*i)]; 
+
+		if (pos[0] > 0.5f)
+		{
+			//==================================================================
+			// insert high res particles 
+			//==================================================================
+			
+			// compute distance from parent particle
+			float r = mConfiguration.FluidParticleMass[LOW]/
+				(M_PI*mDensities[LOW][*i]);
+
+			// compute id of first child particle
+			unsigned int k = 4*(*i);
+
+			// for all child particles
+			for (unsigned int j = 0; j < 4; j++)
+			{
+			//	std::cout << k << " " << mFluidParticles[HIGH]->NumParticles << std::endl;
+				// init position and velocity
+				mFluidParticles[HIGH]->Positions[2*(k + j) + 0] = 
+					pos[0] + dir[2*j + 0]*r/sq;
+				mFluidParticles[HIGH]->Positions[2*(k + j) + 1] = 
+					pos[1] + dir[2*j + 1]*r/sq;
+				mVelocities[HIGH][2*(k + j) + 0] = vel[0];
+				mVelocities[HIGH][2*(k + j) + 1] = vel[1];
+				
+				// set active
+				mFluidParticles[HIGH]->ActiveIDs.push_back(k + j);
+			}
+			
+			//==================================================================
+			// 	set particle i inactive / remove it from the active list
+			//==================================================================
+			mFluidParticles[LOW]->ActiveIDs.erase(i);	
+		}
+
+	}	
+
+
+
 }
 //------------------------------------------------------------------------------

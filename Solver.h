@@ -92,6 +92,18 @@ struct ParticleData
 		}
     }
 
+    ParticleData (unsigned int numParticles, unsigned int numActive)
+    : NumParticles(numParticles)
+    {
+        Positions = new float[2*numParticles];
+        memset(Positions, 0, sizeof(float)*2*numParticles);
+
+		for (unsigned int i = 0; i < numActive; i++)
+		{
+			ActiveIDs.push_back(i);
+		}
+    }
+
     ~ParticleData ()
     {
         delete[] Positions;
@@ -209,6 +221,7 @@ public:
     void Advance (float timeStep);
 
 private:
+
     //==========================================================================
     // private methods used to advance the particle system
     //==========================================================================
@@ -216,6 +229,7 @@ private:
     inline void computeDensity (unsigned char res);
     inline void computeAcceleration (unsigned char res);
     inline void integrate (unsigned char res, float timeStep);
+	inline void inject ();
 
     //==========================================================================
     // private member

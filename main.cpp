@@ -1,4 +1,4 @@
-//-----------------------------------------------------------------------------
+//------------------------------------------------------------------------------
 #include <stdio.h>
 #include <stdlib.h>
 #include <math.h>
@@ -7,17 +7,17 @@
 #include <iostream>
 #include "Solver.h"
 #include "Renderer.h"
-//-----------------------------------------------------------------------------
+//------------------------------------------------------------------------------
 #define WIDTH  800
 #define HEIGHT 800
 #define PI 3.14159265358979323846f
-//-----------------------------------------------------------------------------
+//------------------------------------------------------------------------------
 static ParticleData* gsParticleData[2];
 static ParticleData* gsBoundaryData;
 static Renderer* gsRenderer[2];
 static Renderer* gsBoundaryRenderer;
 static Solver* gsSolver;
-//-----------------------------------------------------------------------------
+//------------------------------------------------------------------------------
 static void init ()
 {
 	// init particle data  
@@ -31,6 +31,12 @@ static void init ()
 		Grid(Vector2f(0.64f, 0.21f), Vector2ui(26, 51), 0.0025f)  
 	);
 
+//	gsParticleData[HIGH] = new ParticleData
+//	(
+//		gsParticleData[LOW]->NumParticles*4,
+//		0
+//	);
+
 	// init boundary data
 	gsBoundaryData = ParticleData::CreateCanvas
 	(
@@ -39,14 +45,26 @@ static void init ()
 	);	
 
     // init the renderer
-    gsRenderer[LOW] = new Renderer(*(gsParticleData[LOW]), 0.0f, 0.0f, 1.0f, 
-		1.0f, 0.0f, 0.0f, 1.0f, 1.0f);
-    gsRenderer[HIGH] = new Renderer(*(gsParticleData[HIGH]), 0.0f, 0.0f, 1.0f, 
-		1.0f, 0.0f, 0.0f, 1.0f, 1.0f);
+    gsRenderer[LOW] = new Renderer
+	(
+		*(gsParticleData[LOW]),
+		0.0f, 0.0f, 1.0f, 1.0f, 
+		0.0f, 0.0f, 1.0f, 1.0f
+	);
+    gsRenderer[HIGH] = new Renderer
+	(
+		*(gsParticleData[HIGH]), 
+		0.0f, 0.0f, 1.0f, 1.0f, 
+		1.0f, 0.0f, 0.0f, 1.0f
+	);
 
 	// init boundary renderer
-	gsBoundaryRenderer = new Renderer(*gsBoundaryData, 0.0f, 0.0f, 1.0f, 1.0f, 
-		0.0f, 0.0f, 0.0f, 1.0f);
+	gsBoundaryRenderer = new Renderer
+	(
+		*gsBoundaryData, 
+		0.0f, 0.0f, 1.0f, 1.0f, 
+		0.0f, 0.0f, 0.0f, 1.0f  
+	);
 
     // init the solver configuration
     SolverConfiguration configuration;
@@ -87,7 +105,7 @@ static void init ()
 	//	
 	glClearColor(1.0f, 1.0f, 1.0f, 1.0f);
 }
-//-----------------------------------------------------------------------------
+//------------------------------------------------------------------------------
 static void release ()
 {
 	delete gsParticleData[LOW];
@@ -96,7 +114,7 @@ static void release ()
 	delete gsRenderer[HIGH];
 	delete gsSolver;
 }
-//-----------------------------------------------------------------------------
+//------------------------------------------------------------------------------
 static void draw ()
 {
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -105,7 +123,7 @@ static void draw ()
 	gsBoundaryRenderer->Render();
 	gsSolver->Advance(0.0005f);
 }
-//-----------------------------------------------------------------------------
+//------------------------------------------------------------------------------
 int main(int argc, const char *argv[])
 {
     SDL_Window* mainWindow;
@@ -123,7 +141,7 @@ int main(int argc, const char *argv[])
 
 	mainWindow = SDL_CreateWindow
 	(
-		"Triangle", 
+		"SPH2SCALE", 
 		SDL_WINDOWPOS_CENTERED, 
         SDL_WINDOWPOS_CENTERED, 
 		WIDTH, 
@@ -174,4 +192,4 @@ int main(int argc, const char *argv[])
 
     return 0;
 }
-
+//------------------------------------------------------------------------------
