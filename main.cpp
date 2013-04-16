@@ -22,16 +22,25 @@ static bool gsPause = false;
 //------------------------------------------------------------------------------
 static void init ()
 {
+	//==========================================================================
 	// init particle data  
+	//==========================================================================
+
 	gsParticleData[LOW] = ParticleData::CreateCube
 	(
 		Grid(Vector2f(0.21f, 0.21f), Vector2ui(26, 51), 0.005f)
 	);
-	
-	gsParticleData[HIGH] = ParticleData::CreateCube
+
+	gsParticleData[HIGH] = new ParticleData
 	(
-		Grid(Vector2f(0.64f, 0.21f), Vector2ui(26, 51), 0.0025f)  
+		gsParticleData[LOW]->NumParticles*4,
+		0
 	);
+	
+//	gsParticleData[HIGH] = ParticleData::CreateCube
+//	(
+//		Grid(Vector2f(0.64f, 0.21f), Vector2ui(26, 51), 0.0025f)  
+//	);
 
 	// init boundary data
 	gsBoundaryData = ParticleData::CreateCanvas
@@ -40,7 +49,9 @@ static void init ()
 		3
 	);	
 
+	//==========================================================================
     // init the renderer
+	//==========================================================================
     gsRenderer[LOW] = new Renderer
 	(
 		*(gsParticleData[LOW]),
@@ -62,14 +73,17 @@ static void init ()
 		0.010f
 	);
 
+	//==========================================================================
     // init the solver configuration
+	//==========================================================================
+
     SolverConfiguration configuration;
     configuration.EffectiveRadius[LOW] = std::sqrt
     (
-        0.125f*0.25f*30.0f/(PI*gsParticleData[LOW]->NumParticles)
+        0.125f*0.25f*40.0f/(PI*gsParticleData[LOW]->NumParticles)
     );
     configuration.EffectiveRadius[HIGH] = 
-		configuration.EffectiveRadius[LOW]/2.0f;
+		0.5f*configuration.EffectiveRadius[LOW];
     configuration.Domain[LOW] = Domain
     (
         Vector2f(0.0f, 0.0f), 
@@ -86,19 +100,23 @@ static void init ()
     configuration.FluidParticleMass[LOW] = configuration.RestDensity*0.25f*
 		0.125f/gsParticleData[LOW]->NumParticles;
     configuration.FluidParticleMass[HIGH] = 
-		configuration.FluidParticleMass[LOW]/4.0f;
+		0.25f*configuration.FluidParticleMass[LOW];
     configuration.BoundaryParticleMass = configuration.FluidParticleMass[LOW];
     configuration.TensionCoefficient = 0.08f; 
     configuration.SpeedSound = 88.1472f;
     configuration.TaitCoefficient = 1119.0714f;
     configuration.Alpha = 0.04f;
 
+	//==========================================================================
     // init the solver
+	//==========================================================================
+
     gsSolver = new Solver(gsParticleData, gsBoundaryData, configuration);
 	
-	//
+	//==========================================================================
 	// init gl
-	//	
+	//==========================================================================
+
 	glClearColor(1.0f, 1.0f, 1.0f, 1.0f);
 }
 //------------------------------------------------------------------------------
@@ -116,7 +134,7 @@ static void draw ()
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 	gsRenderer[LOW]->Render();
 	gsRenderer[HIGH]->Render();
-	gsBoundaryRenderer->Render();
+//	gsBoundaryRenderer->Render();
 
 	if (!gsPause)
 	{

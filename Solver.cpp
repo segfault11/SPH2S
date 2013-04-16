@@ -393,11 +393,11 @@ void Solver::Advance (float timeStep)
 	mFluidHashTable[HIGH]->Fill(mFluidParticles[HIGH]->ActiveIDs);
 	computeDensity(LOW); 
 	computeDensity(HIGH); 
-    computeAcceleration(LOW);
-    computeAcceleration(HIGH);
+	computeAcceleration(LOW);
+	computeAcceleration(HIGH);
 	integrate(LOW, timeStep);
     integrate(HIGH, timeStep);
-	//inject();
+	inject();
 }
 //------------------------------------------------------------------------------
 void Solver::computeDensity (unsigned char res)
@@ -503,12 +503,7 @@ void Solver::computeDensity (unsigned char res)
 		//======================================================================
 
         mDensities[res][*i] = density + densityc;
-       
-
-		// DEBUG!
-		mFluidParticles[res]->Colors[*i] = std::abs(density + densityc - 
-			mConfiguration.RestDensity)/400.0f;
- 
+        
         float a = density/mConfiguration.RestDensity;
         float a3 = a*a*a;
         mPressures[res][*i] = mConfiguration.TaitCoefficient*(a3*a3*a - 1.0f);
@@ -760,6 +755,13 @@ void Solver::integrate (unsigned char res, float timeStep)
         vel[1] += timeStep*acc[1];
         pos[0] += timeStep*vel[0];
         pos[1] += timeStep*vel[1];
+
+
+		float aNorm = sqrt(acc[0]*acc[0] + acc[1]*acc[1]);
+
+		mFluidParticles[res]->Colors[*i] =
+			mConfiguration.FluidParticleMass[res]*timeStep*aNorm/
+			(0.25f*mConfiguration.EffectiveRadius[res]);
 	}
 }
 //------------------------------------------------------------------------------
@@ -793,8 +795,8 @@ void Solver::inject ()
 			//==================================================================
 			
 			// compute distance from parent particle
-			float r = mConfiguration.FluidParticleMass[LOW]/
-				(M_PI*mDensities[LOW][*i]);
+			float r = sqrt(mConfiguration.FluidParticleMass[LOW]/
+				(M_PI*mDensities[LOW][*i]));
 
 			// compute id of first child particle
 			unsigned int k = 4*(*i);
@@ -802,12 +804,12 @@ void Solver::inject ()
 			// for all child particles
 			for (unsigned int j = 0; j < 4; j++)
 			{
-			//	std::cout << k << " " << mFluidParticles[HIGH]->NumParticles << std::endl;
 				// init position and velocity
 				mFluidParticles[HIGH]->Positions[2*(k + j) + 0] = 
 					pos[0] + dir[2*j + 0]*r/sq;
 				mFluidParticles[HIGH]->Positions[2*(k + j) + 1] = 
 					pos[1] + dir[2*j + 1]*r/sq;
+
 				mVelocities[HIGH][2*(k + j) + 0] = vel[0];
 				mVelocities[HIGH][2*(k + j) + 1] = vel[1];
 				
