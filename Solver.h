@@ -235,6 +235,7 @@ private:
     inline void computeAcceleration (unsigned char res);
     inline void integrate (unsigned char res, float timeStep);
 	inline void inject ();
+	inline void updateBlendValues ();
 
     //==========================================================================
     // private member
@@ -250,7 +251,12 @@ private:
     float* mAccelerations[2];
     float* mDensities[2];
     float* mPressures[2];
-    
+	float* mBlendValues[2];
+	unsigned char* mStates[2];
+
+	static const float mskBlendIncrement = 0.05f;   
+
+ 
     ParticleData* mBoundaryParticles;
     HashTable* mBoundaryHashTable;
 };

@@ -198,6 +198,11 @@ const IDList& Solver::HashTable::GetResult () const
 
 //------------------------------------------------------------------------------
 #define PI 3.14159265358979323846f
+enum
+{
+	DEFAULT,
+	TRANSIENT
+};
 //------------------------------------------------------------------------------
 inline float computeDotProduct (const float *x, const float *y)
 {
@@ -340,6 +345,8 @@ Solver::Solver
     	mAccelerations[i] = new float[2*fluidParticles[i]->NumParticles];
     	mDensities[i] = new float[fluidParticles[i]->NumParticles];
     	mPressures[i] = new float[fluidParticles[i]->NumParticles];
+		mBlendValues[i] = new float[fluidParticles[i]->NumParticles];
+		mStates[i] = new unsigned char[fluidParticles[i]->NumParticles];
 
 		// memset everthing to 0
 	    memset
@@ -366,6 +373,18 @@ Solver::Solver
 			0, 
 			sizeof(float)*fluidParticles[i]->NumParticles
 		);
+		std::fill
+		(
+			mBlendValues[i], 
+			mBlendValues[i] + fluidParticles[i]->NumParticles,
+			1.0f
+		);
+		memset
+		(
+			mStates[i],
+			0,
+			sizeof(unsigned char)*fluidParticles[i]->NumParticles
+		);
 	}
 
 	// insert boundary particles into the hash map
@@ -382,13 +401,16 @@ Solver::~Solver ()
     	delete[] mAccelerations[i];
     	delete[] mDensities[i];
     	delete[] mPressures[i];
+    	delete[] mBlendValues[i];
 		delete mFluidHashTable[i];
+		delete[] mStates[i];
 	}
 
 }
 //------------------------------------------------------------------------------
 void Solver::Advance (float timeStep) 										
 {
+	updateBlendValues();
 	mFluidHashTable[LOW]->Fill(mFluidParticles[LOW]->ActiveIDs);                
 	mFluidHashTable[HIGH]->Fill(mFluidParticles[HIGH]->ActiveIDs);
 	computeDensity(LOW); 
@@ -398,6 +420,10 @@ void Solver::Advance (float timeStep)
 	integrate(LOW, timeStep);
     integrate(HIGH, timeStep);
 	inject();
+
+//	std::cout << mFluidParticles[LOW]->ActiveIDs.size() << std::endl;
+//	std::cout << mFluidParticles[HIGH]->ActiveIDs.size() << std::endl;
+
 }
 //------------------------------------------------------------------------------
 void Solver::computeDensity (unsigned char res)
@@ -435,7 +461,7 @@ void Solver::computeDensity (unsigned char res)
 
             if (dist < mConfiguration.EffectiveRadius[res])
             {
-                density += evaluateKernel
+                density += mBlendValues[res][*j]*evaluateKernel
 				(
 					dist, 
 					mConfiguration.EffectiveRadius[res]
@@ -452,7 +478,6 @@ void Solver::computeDensity (unsigned char res)
 
 		unsigned char resc = (res + 1) % 2;
 		float densityc = 0.0f;
-
 
 		// get neighbor ids
 		// (in the contemp. domain, we always have a search radius of the 
@@ -490,7 +515,7 @@ void Solver::computeDensity (unsigned char res)
 					mConfiguration.EffectiveRadius[resc]
 				);
 
-				densityc += 0.5f*(w + wc);
+				densityc += mBlendValues[resc][*jc]*0.5f*(w + wc);
 
             }
 
@@ -501,9 +526,12 @@ void Solver::computeDensity (unsigned char res)
 		//======================================================================
 		// 	Update density and pressure of particle i
 		//======================================================================
+		
+		// add contr. of contemp. domain
+		density += densityc;
 
-        mDensities[res][*i] = density + densityc;
-        
+        mDensities[res][*i] = density;
+  
         float a = density/mConfiguration.RestDensity;
         float a3 = a*a*a;
         mPressures[res][*i] = mConfiguration.TaitCoefficient*(a3*a3*a - 1.0f);
@@ -587,11 +615,11 @@ void Solver::computeAcceleration (unsigned char res)
                 //evaluate kernel gradient and add contribution of particle j
                 //to acc
 				Vector2f grad = evaluateKernelGradient(Vector2f(xij), dist, h);
-                acc[0] += coeff*grad.X;
-                acc[1] += coeff*grad.Y;
+                acc[0] += mBlendValues[res][*j]*coeff*grad.X;
+                acc[1] += mBlendValues[res][*j]*coeff*grad.Y;
 
                 // compute tension force and add to the acc
-                float kernelT = evaluateKernel(dist, h);
+                float kernelT = mBlendValues[res][*j]*evaluateKernel(dist, h);
                 accT[0] -= mConfiguration.TensionCoefficient*xij[0]*kernelT;
                 accT[1] -= mConfiguration.TensionCoefficient*xij[1]*kernelT;
             }
@@ -665,16 +693,16 @@ void Solver::computeAcceleration (unsigned char res)
 					hc
 				);
 
-                accC[0] += coeff*(grad.X + gradc.X)*0.5f;
-                accC[1] += coeff*(grad.Y + gradc.Y)*0.5f;
+                accC[0] += mBlendValues[resc][*jc]*coeff*(grad.X + gradc.X)*0.5f;
+                accC[1] += mBlendValues[resc][*jc]*coeff*(grad.Y + gradc.Y)*0.5f;
 
                 float wt = evaluateKernel(dist, h);
                 float wct = evaluateKernel(dist, hc);
 
                 accCT[0] -= mConfiguration.TensionCoefficient*xij[0]*
-					(wt + wct)/2.0f;
+					(wt + wct)/2.0f*mBlendValues[resc][*jc];
                 accCT[1] -= mConfiguration.TensionCoefficient*xij[1]*
-					(wt + wct)/2.0f;
+					(wt + wct)/2.0f*mBlendValues[resc][*jc];
        		}
 
 		}
@@ -727,7 +755,7 @@ void Solver::computeAcceleration (unsigned char res)
 		accCT[0] *= (mConfiguration.FluidParticleMass[resc]/
 			mConfiguration.FluidParticleMass[res]);
 		accCT[1] *= (mConfiguration.FluidParticleMass[resc]/
-			mConfiguration.FluidParticleMass[res]);
+		mConfiguration.FluidParticleMass[res]);
         acc[0] += accT[0];
         acc[1] += accT[1];
         acc[0] += accC[0];
@@ -755,7 +783,6 @@ void Solver::integrate (unsigned char res, float timeStep)
         vel[1] += timeStep*acc[1];
         pos[0] += timeStep*vel[0];
         pos[1] += timeStep*vel[1];
-
 
 		float aNorm = sqrt(acc[0]*acc[0] + acc[1]*acc[1]);
 
@@ -788,7 +815,7 @@ void Solver::inject ()
         float *pos = &mFluidParticles[LOW]->Positions[2*(*i)];
         float *vel = &mVelocities[LOW][2*(*i)]; 
 
-		if (pos[0] > 0.5f)
+		if (pos[0] > 0.5f && mStates[LOW][*i] == DEFAULT)
 		{
 			//==================================================================
 			// insert high res particles 
@@ -815,15 +842,47 @@ void Solver::inject ()
 				
 				// set active
 				mFluidParticles[HIGH]->ActiveIDs.push_back(k + j);
+				mStates[HIGH][k + j] = TRANSIENT;
+				mBlendValues[HIGH][k + j] = 0.0f;
 			}
 			
 			//==================================================================
 			// 	set particle i inactive / remove it from the active list
 			//==================================================================
-			mFluidParticles[LOW]->ActiveIDs.erase(i);	
+			mStates[LOW][*i] = TRANSIENT;
+			mBlendValues[LOW][*i] = 1.0f;
 		}
 
 	}	
 
+}
+//------------------------------------------------------------------------------
+void Solver::updateBlendValues ()
+{
+	IDList::iterator i = mFluidParticles[LOW]->ActiveIDs.begin();
+	IDList::iterator e = mFluidParticles[LOW]->ActiveIDs.end();
+
+    for (;i != e; i++)
+    {
+		if (mStates[LOW][*i] == TRANSIENT)
+		{
+			
+			// compute id of first child particle
+			unsigned int k = 4*(*i);
+
+			// for all child particles
+			for (unsigned int j = 0; j < 4; j++)
+			{
+				mBlendValues[HIGH][k + j] += mskBlendIncrement;
+			}
+
+			mBlendValues[LOW][*i] -= mskBlendIncrement;
+			
+			if (mBlendValues[LOW][*i] <= 0.0f)
+			{
+				mFluidParticles[LOW]->ActiveIDs.erase(i);
+			}
+		}
+	}	
 }
 //------------------------------------------------------------------------------
