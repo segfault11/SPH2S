@@ -204,6 +204,22 @@ enum
 	TRANSIENT
 };
 //------------------------------------------------------------------------------
+inline float mexicanHat2D (float x, float y)
+{
+    #define MEXICAN_HAT_C 0.8673250705840776
+
+	float x2 = x*x;
+	float y2 = y*y;
+
+	return MEXICAN_HAT_C*(1.0f - (x2 + y2))*exp(-(x2 + y2)/2.0f);
+}
+//------------------------------------------------------------------------------
+inline float mexicanHat2D (float distOh)
+{
+    #define MEXICAN_HAT_C 0.8673250705840776
+	return MEXICAN_HAT_C*(1.0f - distOh*distOh)*exp(-distOh*distOh/2.0f);
+}
+//------------------------------------------------------------------------------
 inline float computeDotProduct (const float *x, const float *y)
 {
     return x[0]*y[0] + x[1]*y[1];
@@ -420,10 +436,6 @@ void Solver::Advance (float timeStep)
 	integrate(LOW, timeStep);
     integrate(HIGH, timeStep);
 	inject();
-
-//	std::cout << mFluidParticles[LOW]->ActiveIDs.size() << std::endl;
-//	std::cout << mFluidParticles[HIGH]->ActiveIDs.size() << std::endl;
-
 }
 //------------------------------------------------------------------------------
 void Solver::computeDensity (unsigned char res)
@@ -555,6 +567,10 @@ void Solver::computeAcceleration (unsigned char res)
 
 	//	std::cout << mDensities[LOW][*i] << std::endl;
     
+		float ene[2];
+		ene[0] = 0.0f;		
+		ene[1] = 0.0f;
+		float psiSum = 0.0f;		
 
 	    // reset acc
         acc[0] = 0.0f;
@@ -612,8 +628,8 @@ void Solver::computeAcceleration (unsigned char res)
                     coeff += nu*vx/(x2 + 0.01f*h*h);
                 }
 
-                //evaluate kernel gradient and add contribution of particle j
-                //to acc
+                // evaluate kernel gradient and add contribution of particle j
+                // to acc
 				Vector2f grad = evaluateKernelGradient(Vector2f(xij), dist, h);
                 acc[0] += mBlendValues[res][*j]*coeff*grad.X;
                 acc[1] += mBlendValues[res][*j]*coeff*grad.Y;
@@ -622,7 +638,14 @@ void Solver::computeAcceleration (unsigned char res)
                 float kernelT = mBlendValues[res][*j]*evaluateKernel(dist, h);
                 accT[0] -= mConfiguration.TensionCoefficient*xij[0]*kernelT;
                 accT[1] -= mConfiguration.TensionCoefficient*xij[1]*kernelT;
-            }
+				if (dist != 0.0f)
+				{
+					float mw = mexicanHat2D(xij[0]/h, xij[1]/h);
+					ene[0] += velj[0]*mw; 
+					ene[1] += velj[1]*mw; 
+					psiSum += mw;
+            	}
+			}
 
         }
 
@@ -693,8 +716,10 @@ void Solver::computeAcceleration (unsigned char res)
 					hc
 				);
 
-                accC[0] += mBlendValues[resc][*jc]*coeff*(grad.X + gradc.X)*0.5f;
-                accC[1] += mBlendValues[resc][*jc]*coeff*(grad.Y + gradc.Y)*0.5f;
+                accC[0] += mBlendValues[resc][*jc]*coeff*
+					(grad.X + gradc.X)*0.5f;
+                accC[1] += mBlendValues[resc][*jc]*coeff*
+					(grad.Y + gradc.Y)*0.5f;
 
                 float wt = evaluateKernel(dist, h);
                 float wct = evaluateKernel(dist, hc);
@@ -703,6 +728,11 @@ void Solver::computeAcceleration (unsigned char res)
 					(wt + wct)/2.0f*mBlendValues[resc][*jc];
                 accCT[1] -= mConfiguration.TensionCoefficient*xij[1]*
 					(wt + wct)/2.0f*mBlendValues[resc][*jc];
+
+				float mw = 0.5f*(mexicanHat2D(dist/h) + mexicanHat2D(dist/hc));
+				ene[0] += velj[0]*mw; 
+				ene[1] += velj[1]*mw; 
+				psiSum += mw;
        		}
 
 		}
@@ -765,6 +795,17 @@ void Solver::computeAcceleration (unsigned char res)
         acc[0] += accB[0];
         acc[1] += accB[1];
         acc[1] -= 9.81f;
+
+		float col = std::min
+		(
+			1.0f/(psiSum*psiSum*mConfiguration.EffectiveRadius[res])*
+			(ene[0]*ene[0] + ene[1]*ene[1]),
+			200.0f
+		)/200.0f;
+
+	//	std::cout << col << std::endl;
+
+		mFluidParticles[res]->Colors[*i] = col;
     }
 }
 //------------------------------------------------------------------------------
@@ -783,12 +824,6 @@ void Solver::integrate (unsigned char res, float timeStep)
         vel[1] += timeStep*acc[1];
         pos[0] += timeStep*vel[0];
         pos[1] += timeStep*vel[1];
-
-		float aNorm = sqrt(acc[0]*acc[0] + acc[1]*acc[1]);
-
-		mFluidParticles[res]->Colors[*i] =
-			mConfiguration.FluidParticleMass[res]*timeStep*aNorm/
-			(0.25f*mConfiguration.EffectiveRadius[res]);
 	}
 }
 //------------------------------------------------------------------------------
@@ -815,14 +850,15 @@ void Solver::inject ()
         float *pos = &mFluidParticles[LOW]->Positions[2*(*i)];
         float *vel = &mVelocities[LOW][2*(*i)]; 
 
-		if (pos[0] > 0.5f && mStates[LOW][*i] == DEFAULT)
+		if (mFluidParticles[LOW]->Colors[*i] == 1.0f  && 
+			mStates[LOW][*i] == DEFAULT)
 		{
 			//==================================================================
 			// insert high res particles 
 			//==================================================================
 			
 			// compute distance from parent particle
-			float r = sqrt(mConfiguration.FluidParticleMass[LOW]/
+			float r = 0.5*sqrt(mConfiguration.FluidParticleMass[LOW]/
 				(M_PI*mDensities[LOW][*i]));
 
 			// compute id of first child particle

@@ -28,7 +28,7 @@ static void init ()
 
 	gsParticleData[LOW] = ParticleData::CreateCube
 	(
-		Grid(Vector2f(0.21f, 0.21f), Vector2ui(26, 51), 0.005f)
+		Grid(Vector2f(0.41f, 0.26f), Vector2ui(26, 51), 0.005f)
 	);
 
 	gsParticleData[HIGH] = new ParticleData
@@ -134,11 +134,11 @@ static void draw ()
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 	gsRenderer[LOW]->Render();
 	gsRenderer[HIGH]->Render();
-//	gsBoundaryRenderer->Render();
+	gsBoundaryRenderer->Render();
 
 	if (!gsPause)
 	{
-		gsSolver->Advance(0.0005f);
+		gsSolver->Advance(0.0007f);
 	}
 }
 //------------------------------------------------------------------------------
