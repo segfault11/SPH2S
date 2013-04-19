@@ -193,7 +193,6 @@ struct SolverConfiguration
     float SpeedSound;
     float Alpha;
     float TensionCoefficient;
-
     ::Domain Domain[2];
 };
 //------------------------------------------------------------------------------

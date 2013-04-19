@@ -7,6 +7,7 @@
 #include <iostream>
 #include "Solver.h"
 #include "Renderer.h"
+#include "VideoWriter.h"
 //------------------------------------------------------------------------------
 #define WIDTH  800
 #define HEIGHT 800
@@ -18,7 +19,8 @@ static Renderer* gsRenderer[2];
 static Renderer* gsBoundaryRenderer;
 static Solver* gsSolver;
 static DisplayRectangle gsDispRect(0.0f, 0.0f, 1.0f, 1.0f);
-static bool gsPause = false;
+static bool gsPause = false; 
+static VideoWriter gsVideoWriter("video.avi", 800, 800);
 //------------------------------------------------------------------------------
 static void init ()
 {
@@ -28,7 +30,7 @@ static void init ()
 
 	gsParticleData[LOW] = ParticleData::CreateCube
 	(
-		Grid(Vector2f(0.41f, 0.26f), Vector2ui(26, 51), 0.005f)
+		Grid(Vector2f(0.41f, 0.21f), Vector2ui(26, 51), 0.005f)
 	);
 
 	gsParticleData[HIGH] = new ParticleData
@@ -56,13 +58,13 @@ static void init ()
 	(
 		*(gsParticleData[LOW]),
 		gsDispRect,
-		0.005f
+		0.007f
 	);
     gsRenderer[HIGH] = new Renderer
 	(
 		*(gsParticleData[HIGH]), 
 		gsDispRect,
-		0.0025f
+		0.0035f
 	);
 
 	// init boundary renderer
@@ -70,7 +72,8 @@ static void init ()
 	(
 		*gsBoundaryData, 
 		gsDispRect, 
-		0.010f
+		0.008f,
+		true
 	);
 
 	//==========================================================================
@@ -140,6 +143,8 @@ static void draw ()
 	{
 		gsSolver->Advance(0.0007f);
 	}
+
+	gsVideoWriter.CaptureFrame();
 }
 //------------------------------------------------------------------------------
 int main(int argc, const char *argv[])
@@ -236,6 +241,7 @@ int main(int argc, const char *argv[])
 							break;	
 						case 'p':
 							gsPause = gsPause == true ? false : true;
+							gsVideoWriter.SaveScreenshot("test.bmp");
 							break;
 					}
 					break;

@@ -3,7 +3,7 @@
 
 //------------------------------------------------------------------------------
 Renderer::Renderer (const ParticleData& particles, const DisplayRectangle& rect,
-	float pointSize)
+	float pointSize, bool setBlack)
 : mParticles(particles)
 {
 	//
@@ -29,7 +29,15 @@ Renderer::Renderer (const ParticleData& particles, const DisplayRectangle& rect,
     GLint loc;
     loc = glGetUniformLocation(mProgram, "pointSize");
     glUniform1f(loc, pointSize);
-
+   	loc = glGetUniformLocation(mProgram, "setBlack");
+	if (setBlack)
+	{
+    	glUniform1i(loc, 1);
+	}
+	else
+	{
+    	glUniform1i(loc, 0);
+	}
     // create vbo & vao
     GL::CreateBufferObject
     (

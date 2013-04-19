@@ -445,6 +445,13 @@ void Solver::computeDensity (unsigned char res)
 
     for (; i != e; i++)
     {
+
+		float xicm[2];
+		xicm[0] = 0.0f;
+		xicm[1] = 0.0f;
+		float mt = 0.0f;
+
+
 		//======================================================================
 		// 	compute densities in the same domain
 		//======================================================================
@@ -478,6 +485,12 @@ void Solver::computeDensity (unsigned char res)
 					dist, 
 					mConfiguration.EffectiveRadius[res]
 				);
+
+				float mass = mConfiguration.FluidParticleMass[res];
+				xicm[0] += mass*posj[0];
+				xicm[1] += mass*posj[1];
+				mt += mass;
+
             }
 
         }		
@@ -529,6 +542,11 @@ void Solver::computeDensity (unsigned char res)
 
 				densityc += mBlendValues[resc][*jc]*0.5f*(w + wc);
 
+				float mass = mConfiguration.FluidParticleMass[resc];
+				xicm[0] += mass*posjc[0];
+				xicm[1] += mass*posjc[1];
+				mt += mass;
+
             }
 
         }		
@@ -538,7 +556,7 @@ void Solver::computeDensity (unsigned char res)
 		//======================================================================
 		// 	Update density and pressure of particle i
 		//======================================================================
-		
+	
 		// add contr. of contemp. domain
 		density += densityc;
 
@@ -547,6 +565,31 @@ void Solver::computeDensity (unsigned char res)
         float a = density/mConfiguration.RestDensity;
         float a3 = a*a*a;
         mPressures[res][*i] = mConfiguration.TaitCoefficient*(a3*a3*a - 1.0f);
+
+		xicm[0] = pos[0] - xicm[0]/mt;
+		xicm[1] = pos[1] - xicm[1]/mt;
+
+
+		//======================================================================
+		// 	find out if particle is a surface particle
+		//======================================================================
+		float col = std::min
+		(
+			computeNorm(xicm), 0.003f
+		)/0.003f;
+
+		//std::cout << col << std::endl;
+
+		mFluidParticles[res]->Colors[*i] = col;
+
+		if (col >= 1.0f)
+		{
+			mStates[res][*i] |= 0x02;
+		}
+		else
+		{
+			mStates[res][*i] &= 0xF9; // reset surf and nsurf bit
+		}
     } 
 
 }
@@ -638,13 +681,21 @@ void Solver::computeAcceleration (unsigned char res)
                 float kernelT = mBlendValues[res][*j]*evaluateKernel(dist, h);
                 accT[0] -= mConfiguration.TensionCoefficient*xij[0]*kernelT;
                 accT[1] -= mConfiguration.TensionCoefficient*xij[1]*kernelT;
-				if (dist != 0.0f)
-				{
-					float mw = mexicanHat2D(xij[0]/h, xij[1]/h);
-					ene[0] += velj[0]*mw; 
-					ene[1] += velj[1]*mw; 
-					psiSum += mw;
-            	}
+				
+
+				float w2 = mConfiguration.FluidParticleMass[res]/
+					mConfiguration.FluidParticleMass[LOW];
+				float mw = w2*mexicanHat2D
+				(
+					xij[0]/mConfiguration.EffectiveRadius[LOW],
+					xij[1]/mConfiguration.EffectiveRadius[LOW]
+				);
+				ene[0] += velj[0]*mw; 
+				ene[1] += velj[1]*mw; 
+				psiSum += mw;
+
+				mStates[res][*i] |= (mStates[res][*j] << 1) & 0x04;
+
 			}
 
         }
@@ -729,10 +780,25 @@ void Solver::computeAcceleration (unsigned char res)
                 accCT[1] -= mConfiguration.TensionCoefficient*xij[1]*
 					(wt + wct)/2.0f*mBlendValues[resc][*jc];
 
-				float mw = 0.5f*(mexicanHat2D(dist/h) + mexicanHat2D(dist/hc));
+				
+				float w3 = 1.0f;
+				if (res == HIGH && dist > mConfiguration.EffectiveRadius[HIGH])
+				{
+					w3 = 0.0f;
+				}
+
+				float w2 = mConfiguration.FluidParticleMass[res]/
+					mConfiguration.FluidParticleMass[LOW];
+				float mw = w3*w2*mexicanHat2D
+				(
+					xij[0]/mConfiguration.EffectiveRadius[LOW],
+					xij[1]/mConfiguration.EffectiveRadius[LOW]
+				);
 				ene[0] += velj[0]*mw; 
 				ene[1] += velj[1]*mw; 
 				psiSum += mw;
+
+				mStates[res][*i] |= (mStates[res][*jc] << 1) & 0x04;
        		}
 
 		}
@@ -795,17 +861,32 @@ void Solver::computeAcceleration (unsigned char res)
         acc[0] += accB[0];
         acc[1] += accB[1];
         acc[1] -= 9.81f;
+	
+		float energy = 1.0f/(psiSum*psiSum*mConfiguration.EffectiveRadius[res])*
+			(ene[0]*ene[0] + ene[1]*ene[1]);
 
-		float col = std::min
-		(
-			1.0f/(psiSum*psiSum*mConfiguration.EffectiveRadius[res])*
-			(ene[0]*ene[0] + ene[1]*ene[1]),
-			200.0f
-		)/200.0f;
 
-	//	std::cout << col << std::endl;
+		if ((mStates[res][*i] & 0x04) == 4 && energy > 130.0f)
+		{
+			mFluidParticles[res]->Colors[*i] = 1.0f;
+			mStates[res][*i] |= 0x08;
+		}
+		else
+		{
+			mFluidParticles[res]->Colors[*i] = 0.0f;
+		}
 
-		mFluidParticles[res]->Colors[*i] = col;
+//		xicm[0] = pos[0] - xicm[0]/mt;
+//		xicm[1] = pos[1] - xicm[1]/mt;
+//
+//		float col = std::min
+//		(
+//			computeNorm(xicm), 0.003f
+//		)/0.003f;
+//
+//		std::cout << col << std::endl;
+//
+//		mFluidParticles[res]->Colors[*i] = col;
     }
 }
 //------------------------------------------------------------------------------
@@ -850,8 +931,8 @@ void Solver::inject ()
         float *pos = &mFluidParticles[LOW]->Positions[2*(*i)];
         float *vel = &mVelocities[LOW][2*(*i)]; 
 
-		if (mFluidParticles[LOW]->Colors[*i] == 1.0f  && 
-			mStates[LOW][*i] == DEFAULT)
+		if ((mStates[LOW][*i] & 0x08) == 8 && 
+			(mStates[LOW][*i] & 0x01) == 0)
 		{
 			//==================================================================
 			// insert high res particles 
@@ -885,7 +966,7 @@ void Solver::inject ()
 			//==================================================================
 			// 	set particle i inactive / remove it from the active list
 			//==================================================================
-			mStates[LOW][*i] = TRANSIENT;
+			mStates[LOW][*i] |= 0x01;
 			mBlendValues[LOW][*i] = 1.0f;
 		}
 
@@ -900,7 +981,7 @@ void Solver::updateBlendValues ()
 
     for (;i != e; i++)
     {
-		if (mStates[LOW][*i] == TRANSIENT)
+		if (mStates[LOW][*i] & 0x01 == 1)
 		{
 			
 			// compute id of first child particle

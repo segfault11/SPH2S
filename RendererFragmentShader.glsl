@@ -4,6 +4,7 @@ uniform float xs;
 uniform float ys;
 uniform float width;
 uniform float height;
+uniform bool setBlack;
 
 out vec4 fragOutput;
 
@@ -35,5 +36,12 @@ void main ()
         discard;
     }
 
-    fragOutput = vec4(getJetColor(gGeometryData.quantity), 1.0f); //color;
+	if (setBlack == false)
+	{
+    	fragOutput = vec4(getJetColor(gGeometryData.quantity), 1.0f); //color;
+	}
+	else
+	{
+    	fragOutput = vec4(0.0f, 0.0f, 0.0f, 1.0f);
+	}
 }

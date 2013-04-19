@@ -50,7 +50,7 @@ class Renderer
 {
 public:
     Renderer (const ParticleData& particles, const DisplayRectangle& rect,
-		float pointSize);
+		float pointSize, bool setBlack = false);
     ~Renderer ();
     void Render () const;
 	void SetDisplayRectangle (const DisplayRectangle& rect);
