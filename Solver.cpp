@@ -426,6 +426,9 @@ Solver::~Solver ()
 //------------------------------------------------------------------------------
 void Solver::Advance (float timeStep) 										
 {
+	Timer t;
+	t.Start();	
+
 	updateBlendValues();
 	mFluidHashTable[LOW]->Fill(mFluidParticles[LOW]->ActiveIDs);                
 	mFluidHashTable[HIGH]->Fill(mFluidParticles[HIGH]->ActiveIDs);
@@ -433,9 +436,24 @@ void Solver::Advance (float timeStep)
 	computeDensity(HIGH); 
 	computeAcceleration(LOW);
 	computeAcceleration(HIGH);
+	integrate(HIGH, timeStep/2.0f);
+
+	mFluidHashTable[HIGH]->Fill(mFluidParticles[HIGH]->ActiveIDs);
+	computeDensity(HIGH); 
+	computeAcceleration(HIGH);
+	integrate(HIGH, timeStep/2.0f);
+
 	integrate(LOW, timeStep);
-    integrate(HIGH, timeStep);
 	inject();
+
+	t.Stop();
+
+	std::cout << "#LOW " << mFluidParticles[LOW]->ActiveIDs.size() << " #HIGH "
+		<<  mFluidParticles[HIGH]->ActiveIDs.size() << " #TOTAL: "
+		<< mFluidParticles[LOW]->ActiveIDs.size() +
+		mFluidParticles[HIGH]->ActiveIDs.size() << "TIME: " 
+		<< t.GetElapsed() << std::endl;
+
 }
 //------------------------------------------------------------------------------
 void Solver::computeDensity (unsigned char res)
@@ -866,15 +884,20 @@ void Solver::computeAcceleration (unsigned char res)
 			(ene[0]*ene[0] + ene[1]*ene[1]);
 
 
-		if ((mStates[res][*i] & 0x04) == 4 && energy > 130.0f)
+		if (pos[0] > 0.5f)
 		{
-			mFluidParticles[res]->Colors[*i] = 1.0f;
+			//mFluidParticles[res]->Colors[*i] = 1.0f;
 			mStates[res][*i] |= 0x08;
 		}
 		else
 		{
-			mFluidParticles[res]->Colors[*i] = 0.0f;
+			//mFluidParticles[res]->Colors[*i] = 0.0f;
 		}
+		mFluidParticles[res]->Colors[*i] = std::min
+		(
+			abs(energy)/200.0f, 
+			1.0f
+		);
 
 //		xicm[0] = pos[0] - xicm[0]/mt;
 //		xicm[1] = pos[1] - xicm[1]/mt;

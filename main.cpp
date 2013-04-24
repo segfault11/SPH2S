@@ -30,7 +30,7 @@ static void init ()
 
 	gsParticleData[LOW] = ParticleData::CreateCube
 	(
-		Grid(Vector2f(0.41f, 0.21f), Vector2ui(26, 51), 0.005f)
+		Grid(Vector2f(0.21f, 0.21f), Vector2ui(26, 51), 0.005f)
 	);
 
 	gsParticleData[HIGH] = new ParticleData
@@ -141,7 +141,7 @@ static void draw ()
 
 	if (!gsPause)
 	{
-		gsSolver->Advance(0.0007f);
+		gsSolver->Advance(0.0015f);
 	}
 
 	gsVideoWriter.CaptureFrame();
